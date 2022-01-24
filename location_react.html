@@ -1,0 +1,143 @@
+<html>
+<head>
+<title>USB2SNES: ff4fe testing</title>
+<script src="https://unpkg.com/react@16/umd/react.development.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@16/umd/react-dom.development.js" crossorigin></script>
+<script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.15/lodash.min.js"></script>
+<script src="./usb2snes.js"></script>
+<script src="./network.js"></script>
+
+<style>
+  html { font-family: sans-serif; }
+</style>
+
+<script>
+
+</script>
+
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+var network;
+
+
+function Connection() {
+    network = useRef(null);
+    const [device, setDevice] = useState(null);
+    const [log, setLog] = useState('');
+    function updateLog(text) {
+        setLog(log => log ? `${log}\n${text}` : text);
+    }
+
+    useEffect(() => {
+        network.current = create_network({ setState: setDevice, log: updateLog });
+    }, []);
+
+    function onConnect() {
+        network.current.onConnect();
+    }
+
+    if (device == null)
+        return null;
+
+    // performance.now() - current ms since ? - to be used in modern timing
+
+    class LocationDisplay extends React.Component {
+      constructor(props) {
+        super(props);
+        this.state = {area: 0, mapID: 0, f: 0, x: 0, y: 0};
+      }
+      componentDidMount() {
+        this.timerID = setInterval(
+          () => this.tick(),
+          200
+        );
+      }
+      componentWillUnmount() {
+        clearInterval(this.timerID);
+      }
+      tick() {
+        if (device.state === 1) {
+        network.current.snes.send(JSON.stringify({
+           "Opcode" : "GetAddress",
+           "Space" : "SNES",
+           "Operands": ["0xF51700", "8"]
+         })).then(event => { return event.data.arrayBuffer(); }, function(sadness) { console.log('Failed to get position'); })
+         .then(ab => { let memory = new Uint8Array(ab); this.setState((state,props) => {
+           const newArea = memory[0];
+           const newF = memory[4];
+           let newMapID = (memory[1] * 256) + memory[2];
+           state.f = newF;
+           state.area = newArea;
+           if (newArea == 0) {
+             newMapID = -3;
+           } else if (newArea == 1) {
+             newMapID = -2;
+           } else if (newArea == 2) {
+             newMapID = -1;
+           }
+           // update time in area[mapID]
+           // if battle ~= 085
+             // increment areabattles
+           // elseif menu == 170
+             // increment areamenus
+           if ((state.x !== memory[6]) || (state.x !== memory[7])) {
+             if (state.f > 0) {
+               // Tiles Flown Modified
+             } else {
+               // Tiles Walked Modified
+             }
+             state.x = memory[6];
+             state.y = memory[7];
+             if (state.mapID !== newMapID) {
+               // Transitions + 1
+               state.mapID = newMapID;
+               if ((state.mapID >= 0) /* && idToArea[state.mapID] ~= currentArea */) {
+                 // currentArea = idToArea[state.mapID]
+                 // AreaString = string.format("%s,%d", AreaString, currentArea)
+               }
+             }
+           }
+           // checkKIs
+         }); },  function(sadness) { console.log('1f'); console.log(sadness); });
+       }
+      }
+      render() {
+        return <React.Fragment>
+            <div id="area">{this.state.area}</div>
+            <div id="mapID">{this.state.mapID}</div>
+            <div id="x">{this.state.x}</div>
+            <div id="y">{this.state.y}</div>
+            <div id="f">{this.state.f}</div>
+          </React.Fragment>;
+      }
+    }
+
+    return <React.Fragment>
+        <button style={{ display: 'block' }} disabled={device.state === 1} onClick={onConnect}>Connect</button>
+        <textarea style={{ width: '800px', height: '250px' }} readOnly={true} value={log} />
+        {device.state === 1 &&
+            <p>App version: {device.app_version || '<loading>'}</p>
+        }
+        {device.state === 1 &&
+            <p>{device.list.length ? 'Devices:' : 'No devices found'}</p>
+        }
+        <ul>
+            {device.list.map((entry, i) =>
+                <li key={i}>{entry.name}: {entry.info || '<loading>'}</li>
+            )}
+        </ul>
+        <LocationDisplay id="location" />
+    </React.Fragment>;
+}
+
+ReactDOM.render(
+    React.createElement(Connection),
+    document.getElementById('app')
+);
+</script>
+
+<body>
+<div id="app"></div>
+</body>
+</html>
