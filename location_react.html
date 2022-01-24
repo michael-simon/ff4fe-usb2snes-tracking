@@ -42,34 +42,32 @@ function Connection() {
 
     // performance.now() - current ms since ? - to be used in modern timing
 
-    class LocationDisplay extends React.Component {
-      constructor(props) {
-        super(props);
-        this.state = {area: 0, mapID: 0, f: 0, x: 0, y: 0};
-      }
-      componentDidMount() {
-        this.timerID = setInterval(
-          () => this.tick(),
+    function LocationDisplay() {
+      const [status, setStatus] = useState({area: 0, mapID: 0, f: 0, x: 0, y: 0});
+      let timerID = null;
+
+      useEffect(() => {
+        timerID = setInterval(
+          () => tick(),
           200
         );
-      }
-      componentWillUnmount() {
-        clearInterval(this.timerID);
-      }
-      tick() {
+        return () => { clearInterval(timerID); }
+      }, []);
+
+      function tick() {
         if (device.state === 1) {
         network.current.snes.send(JSON.stringify({
            "Opcode" : "GetAddress",
            "Space" : "SNES",
            "Operands": ["0xF51700", "8"]
          })).then(event => { return event.data.arrayBuffer(); }, function(sadness) { console.log('Failed to get position'); })
-         .then(ab => { let memory = new Uint8Array(ab); this.setState({
+         .then(ab => { let memory = new Uint8Array(ab); setStatus({
            f: memory[4],
            x: memory[6],
            y: memory[7],
            area: memory[0],
            mapID: (memory[1] * 256) + memory[2]
-         }); },  function(sadness) { console.log('1f'); console.log(sadness); });
+         }); },  function(sadness) { console.log('2f'); console.log(sadness); });
            /*(state,props) => {
            const newArea = memory[0];
            const newF = memory[4];
@@ -109,16 +107,14 @@ function Connection() {
 
        }
       }
-      render() {
-        return <React.Fragment>
-            <div id="area">{this.state.area}</div>
-            <div id="mapID">{this.state.mapID}</div>
-            <div id="x">{this.state.x}</div>
-            <div id="y">{this.state.y}</div>
-            <div id="f">{this.state.f}</div>
-          </React.Fragment>;
+      return <React.Fragment>
+            <div id="area">{status.area}</div>
+            <div id="mapID">{status.mapID}</div>
+            <div id="x">{status.x}</div>
+            <div id="y">{status.y}</div>
+            <div id="f">{status.f}</div>
+      </React.Fragment>;
       }
-    }
 
     return <React.Fragment>
         <button style={{ display: 'block' }} disabled={device.state === 1} onClick={onConnect}>Connect</button>
