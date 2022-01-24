@@ -63,7 +63,14 @@ function Connection() {
            "Space" : "SNES",
            "Operands": ["0xF51700", "8"]
          })).then(event => { return event.data.arrayBuffer(); }, function(sadness) { console.log('Failed to get position'); })
-         .then(ab => { let memory = new Uint8Array(ab); this.setState((state,props) => {
+         .then(ab => { let memory = new Uint8Array(ab); this.setState({
+           f: memory[4],
+           x: memory[6],
+           y: memory[7],
+           area: memory[0],
+           mapID: (memory[1] * 256) + memory[2]
+         }); },  function(sadness) { console.log('1f'); console.log(sadness); });
+           /*(state,props) => {
            const newArea = memory[0];
            const newF = memory[4];
            let newMapID = (memory[1] * 256) + memory[2];
@@ -92,14 +99,14 @@ function Connection() {
              if (state.mapID !== newMapID) {
                // Transitions + 1
                state.mapID = newMapID;
-               if ((state.mapID >= 0) /* && idToArea[state.mapID] ~= currentArea */) {
+               if ((state.mapID >= 0)) { // } && idToArea[state.mapID] ~= currentArea ) {
                  // currentArea = idToArea[state.mapID]
                  // AreaString = string.format("%s,%d", AreaString, currentArea)
                }
              }
-           }
+           }*/
            // checkKIs
-         }); },  function(sadness) { console.log('1f'); console.log(sadness); });
+
        }
       }
       render() {
