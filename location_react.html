@@ -96,14 +96,14 @@ function Connection() {
            let newStatus = {};
            newStatus.area = memory_position[0];
            newStatus.f = memory_position[4];
-           newStatus.mapID = (memory_position[1] * 256) + memory_position[2];
            newStatus.x = memory_position[6];
            newStatus.y = memory_position[7];
            newStatus.battle = memory_status[0];
            newStatus.menu = memory_status[0x300-1];
+           newStatus.mapID = (memory_position[1] * 256) + memory_position[2];
            setStatus(newStatus);
          },
-          sadness => { console.log('2f'); console.log(sadness); Promise.reject(sadness); });
+          sadness => { console.log('2f'); console.log(sadness); });
            /*(state,props) => {
            const newArea = memory[0];
            const newF = memory[4];

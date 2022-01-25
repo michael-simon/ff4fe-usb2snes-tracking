@@ -68,6 +68,7 @@ function create_network(react) {
                 /* Set to 1 to signal a reconnect to socket_onclose */
                 device.state = 1;
                 device.attached = -1;
+                updateState();
                 socket.close();
                 return;
             }
@@ -87,6 +88,7 @@ function create_network(react) {
                 /* Set to 1 to signal a reconnect to socket_onclose */
                 device.state = 1;
                 device.attached = -1;
+                updateState();
                 socket.close();
             }
         }
