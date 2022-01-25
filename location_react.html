@@ -18,56 +18,92 @@
 
 <script type="text/babel">
 const { useState, useEffect, useRef } = React;
-var network;
-
+let network_position;
+let network_status;
+let device_position;
+let device_status;
+let setDevice_position;
+let setDevice_status;
 
 function Connection() {
-    network = useRef(null);
-    const [device, setDevice] = useState(null);
-    const [log, setLog] = useState('');
-    function updateLog(text) {
-        setLog(log => log ? `${log}\n${text}` : text);
+  network_position = useRef(null);
+  network_status = useRef(null);
+  [device_position, setDevice_position] = useState(null);
+  [device_status, setDevice_status] = useState(null);
+
+  const [log, setLog] = useState('');
+  function updateLog(text) {
+      setLog(log => log ? `${log}\n${text}` : text);
+  }
+
+  useEffect(() => {
+      network_position.current = create_network({ setState: setDevice_position, log: updateLog });
+      network_status.current = create_network({ setState: setDevice_status, log: updateLog });
+  }, []);
+
+  function onConnect() {
+    if (device_position.state !== 1) {
+      network_position.current.onConnect();
     }
-
-    useEffect(() => {
-        network.current = create_network({ setState: setDevice, log: updateLog });
-    }, []);
-
-    function onConnect() {
-        network.current.onConnect();
+    if (device_status.state !== 1) {
+      network_status.current.onConnect();
     }
+  }
 
-    if (device == null)
-        return null;
+  if (device_position == null && device_status == null)
+      return null;
 
     // performance.now() - current ms since ? - to be used in modern timing
 
     function LocationDisplay() {
-      const [status, setStatus] = useState({area: 0, mapID: 0, f: 0, x: 0, y: 0});
+
+      const [status, setStatus] = useState({area: 0, mapID: 0, f: 0, x: 0, y: 0, menu: 0, battle: 0});
       let timerID = null;
 
       useEffect(() => {
         timerID = setInterval(
           () => tick(),
-          200
+          100
         );
         return () => { clearInterval(timerID); }
       }, []);
 
       function tick() {
-        if (device.state === 1) {
-        network.current.snes.send(JSON.stringify({
+        if ((device_position.attached !== -1) && (device_status.attached !== -1)) {
+        Promise.all([network_position.current.snes.send(JSON.stringify({
            "Opcode" : "GetAddress",
            "Space" : "SNES",
            "Operands": ["0xF51700", "8"]
-         })).then(event => { return event.data.arrayBuffer(); }, function(sadness) { console.log('Failed to get position'); })
-         .then(ab => { let memory = new Uint8Array(ab); setStatus({
-           f: memory[4],
-           x: memory[6],
-           y: memory[7],
-           area: memory[0],
-           mapID: (memory[1] * 256) + memory[2]
-         }); },  function(sadness) { console.log('2f'); console.log(sadness); });
+         })), network_status.current.snes.send(JSON.stringify({
+            "Opcode" : "GetAddress",
+            "Space" : "SNES",
+            "Operands": ["0xF50201", "300"]
+          })) ]).then(events => {
+            const position_event = events[0];
+            const status_event = events[1];
+            //console.log(position_event);
+            //console.log(status_event);
+            return Promise.all([position_event.data.arrayBuffer(),
+                                status_event.data.arrayBuffer()
+                              ]);
+         }).then(abs => {
+           const ab_position = abs[0];
+           const ab_status = abs[1];
+           //console.log(ab_position);
+           //console.log(ab_status);
+           let memory_position = new Uint8Array(ab_position);
+           let memory_status = new Uint8Array(ab_status);
+           let newStatus = {};
+           newStatus.area = memory_position[0];
+           newStatus.f = memory_position[4];
+           newStatus.mapID = (memory_position[1] * 256) + memory_position[2];
+           newStatus.x = memory_position[6];
+           newStatus.y = memory_position[7];
+           newStatus.battle = memory_status[0];
+           newStatus.menu = memory_status[0x300-1];
+           setStatus(newStatus);
+         },
+          sadness => { console.log('2f'); console.log(sadness); Promise.reject(sadness); });
            /*(state,props) => {
            const newArea = memory[0];
            const newF = memory[4];
@@ -108,28 +144,42 @@ function Connection() {
        }
       }
       return <React.Fragment>
-            <div id="area">{status.area}</div>
-            <div id="mapID">{status.mapID}</div>
-            <div id="x">{status.x}</div>
-            <div id="y">{status.y}</div>
-            <div id="f">{status.f}</div>
+            <div id="area">area: {status.area}</div>
+            <div id="mapID">mapID: {status.mapID}</div>
+            <div id="x">x: {status.x}</div>
+            <div id="y">y: {status.y}</div>
+            <div id="f">f: {status.f}</div>
+            <div id="menu">menu: {status.menu}</div>
+            <div id="battle">battle: {status.battle}</div>
       </React.Fragment>;
       }
 
     return <React.Fragment>
-        <button style={{ display: 'block' }} disabled={device.state === 1} onClick={onConnect}>Connect</button>
+        <button style={{ display: 'block' }} disabled={device_position.state === 1 && device_status.state === 1} onClick={onConnect}>Connect</button>
         <textarea style={{ width: '800px', height: '250px' }} readOnly={true} value={log} />
-        {device.state === 1 &&
-            <p>App version: {device.app_version || '<loading>'}</p>
+        {device_position.state === 1 &&
+            <p>App version (position): {device_position.app_version || '<loading>'}</p>
         }
-        {device.state === 1 &&
-            <p>{device.list.length ? 'Devices:' : 'No devices found'}</p>
+        {device_status.state === 1 &&
+            <p>App version (status): {device_status.app_version || '<loading>'}</p>
+        }
+        {device_position.state === 1 &&
+            <p>{device_position.list.length ? 'Devices:' : 'No devices found'}</p>
         }
         <ul>
-            {device.list.map((entry, i) =>
+            {device_position.list.map((entry, i) =>
                 <li key={i}>{entry.name}: {entry.info || '<loading>'}</li>
             )}
         </ul>
+        {device_status.state === 1 &&
+            <p>{device_status.list.length ? 'Devices:' : 'No devices found'}</p>
+        }
+        <ul>
+            {device_status.list.map((entry, i) =>
+                <li key={i}>{entry.name}: {entry.info || '<loading>'}</li>
+            )}
+        </ul>
+
         <LocationDisplay id="location" />
     </React.Fragment>;
 }

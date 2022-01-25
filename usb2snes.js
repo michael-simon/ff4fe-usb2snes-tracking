@@ -64,7 +64,7 @@ function usb2snes() {
                 setTimeout(function () {
                     busy = false;
                     reject(false);
-                }, 10000);
+                }, 1000);
             }
 
             ws.onmessage = function (event) {

@@ -1,5 +1,5 @@
 function create_network(react) {
-    const snes = usb2snes();
+    const snes = new usb2snes();
 
     let socket = null;
 
@@ -12,6 +12,7 @@ function create_network(react) {
             state: 0,
             app_version: '',
             list: [],
+            attached: -1, // Index of attached
         };
     }
 
@@ -36,6 +37,7 @@ function create_network(react) {
         try {
             if (device.state === 1) {
                 device.state = 0;
+                device.attached = -1;
                 updateState();
                 socket.close();
                 return;
@@ -65,6 +67,7 @@ function create_network(react) {
             if (device.list.length === 0) {
                 /* Set to 1 to signal a reconnect to socket_onclose */
                 device.state = 1;
+                device.attached = -1;
                 socket.close();
                 return;
             }
@@ -74,20 +77,25 @@ function create_network(react) {
                 for (const name of device_list) {
                     i += 1;
                     device.list[i].info = JSON.stringify(await deviceInfo(name));
+                    if (device.list[i].info) {
+                      device.attached = i;
+                    }
                     updateState();
                 }
             } catch (error) {
                 react.log(`Could not attach to device: ${error}`);
                 /* Set to 1 to signal a reconnect to socket_onclose */
                 device.state = 1;
+                device.attached = -1;
                 socket.close();
             }
         }
         catch (error) {
             react.log(`Could not connect to the websocket, retrying: ${error}`);
             device.state = 0;
+            device.attached = -1;
             updateState();
-            setTimeout(onConnect, 5000);
+            setTimeout(onConnect, 2000);
         }
     }
 
